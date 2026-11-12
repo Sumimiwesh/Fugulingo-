@@ -189,7 +189,7 @@ export const QuizModal: React.FC = () => {
                       <>
                         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                         <span className="font-extrabold text-sm text-emerald-800">
-                          正解！素晴らしい判断です
+                          正解！
                         </span>
                       </>
                     ) : (
@@ -207,7 +207,7 @@ export const QuizModal: React.FC = () => {
                     <div className="bg-white/80 rounded-xl p-3 border border-stone-200/60 text-xs space-y-1">
                       <div className="flex items-center space-x-1.5 font-bold text-amber-800">
                         <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
-                        <span>新人スタッフが陥りがちな罠</span>
+                        <span>ポイント</span>
                       </div>
                       <p className="text-stone-700 leading-relaxed font-normal">
                         {currentQuestion.trapExplanation}

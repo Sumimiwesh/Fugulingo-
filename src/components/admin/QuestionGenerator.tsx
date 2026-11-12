@@ -412,7 +412,7 @@ export const QuestionGenerator: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
                   <div className="bg-amber-50/80 p-2.5 rounded-xl border border-amber-200 text-amber-950">
                     <span className="font-bold block text-[10px] text-amber-800 mb-0.5">
-                      ひっかけポイント
+                      ポイント
                     </span>
                     {isEditing ? (
                       <textarea
