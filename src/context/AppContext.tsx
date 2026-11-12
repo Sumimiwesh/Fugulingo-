@@ -21,7 +21,8 @@ interface AppContextType {
   setActiveTab: (tab: AppNavTab) => void;
 
   // 認証関連
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: (role?: UserRole) => Promise<void>;
+  startAsGuest: (role: UserRole) => void;
   logout: () => Promise<void>;
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (open: boolean) => void;
@@ -98,6 +99,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => unsubscribe();
   }, []);
 
+  // 初回訪問時または役割未選択時に「アルバイトですか？管理者ですか？」モーダルを案内
+  useEffect(() => {
+    const hasChosen = localStorage.getItem('fugulingo_initial_role_selected');
+    const storedUser = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+    if (!hasChosen && !storedUser) {
+      setIsLoginModalOpen(true);
+    }
+  }, []);
+
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -131,11 +141,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [user.uid]);
 
   // Googleログイン
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (role?: UserRole) => {
     try {
-      const loggedInUser = await AuthService.signInWithGoogle();
+      localStorage.setItem('fugulingo_initial_role_selected', 'true');
+      const loggedInUser = await AuthService.signInWithGoogle(role);
       setUser(loggedInUser);
       setIsLoginModalOpen(false);
+      if (loggedInUser.role === 'admin') {
+        setActiveTab('admin');
+      } else {
+        setActiveTab('home');
+      }
 
       // ログイン成功のお祝い紙吹雪
       confetti({
@@ -145,6 +161,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     } catch (error) {
       console.error('Login error:', error);
+    }
+  };
+
+  const startAsGuest = (role: UserRole) => {
+    localStorage.setItem('fugulingo_initial_role_selected', 'true');
+    const guest = AuthService.startAsGuest(role);
+    setUser(guest);
+    setIsLoginModalOpen(false);
+    if (role === 'admin') {
+      setActiveTab('admin');
+    } else {
+      setActiveTab('home');
     }
   };
 
@@ -393,6 +421,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activeTab,
         setActiveTab,
         loginWithGoogle,
+        startAsGuest,
         logout,
         isLoginModalOpen,
         setIsLoginModalOpen,

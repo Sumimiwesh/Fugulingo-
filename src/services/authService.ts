@@ -75,12 +75,13 @@ export class AuthService {
     return 'staff';
   }
 
-  static async signInWithGoogle(): Promise<UserProfile> {
+  static async signInWithGoogle(preferredRole?: UserRole): Promise<UserProfile> {
     if (auth) {
       try {
         const result = await signInWithPopup(auth, googleAuthProvider);
         const user = result.user;
-        const role = await this.determineRole(user.email, user.uid);
+        const autoRole = await this.determineRole(user.email, user.uid);
+        const role = preferredRole || autoRole;
 
         // 既存のFirestoreプロフィール（カスタム画像など）があるか確認
         let existingCustomPhoto: string | null = null;
@@ -102,7 +103,10 @@ export class AuthService {
         const profile: UserProfile = {
           uid: user.uid,
           email: user.email,
-          displayName: existingDisplayName || user.displayName || 'Googleスタッフ',
+          displayName:
+            existingDisplayName ||
+            user.displayName ||
+            (role === 'admin' ? '管理者スタッフ' : 'ホールスタッフ'),
           photoURL: existingCustomPhoto || user.photoURL,
           googlePhotoURL: user.photoURL,
           role,
@@ -130,19 +134,35 @@ export class AuthService {
     }
 
     // Firebase未接続環境でのテスト用Googleログイン
+    const role = preferredRole || 'staff';
     const mockGoogleUser: UserProfile = {
       uid: `google-user-${Date.now()}`,
       email: 'my-google-account@gmail.com',
-      displayName: 'Google ログインスタッフ',
+      displayName: role === 'admin' ? '高橋 店長（管理者）' : 'Google ログインスタッフ',
       photoURL: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
       googlePhotoURL: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-      role: 'staff',
+      role,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(mockGoogleUser));
     return mockGoogleUser;
+  }
+
+  static startAsGuest(role: UserRole): UserProfile {
+    const guest: UserProfile = {
+      uid: `guest-${Date.now()}`,
+      email: null,
+      displayName: role === 'admin' ? '店長（管理者ゲスト）' : '新人アルバイトスタッフ',
+      photoURL: null,
+      googlePhotoURL: null,
+      role,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(guest));
+    return guest;
   }
 
   static async updateProfileDetails(

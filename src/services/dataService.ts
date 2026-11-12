@@ -31,10 +31,10 @@ export const getInitialProgressState = (sections: QuizSection[]): UserProgressSt
 
 export const getInitialStreakInfo = (): StreakInfo => {
   return {
-    currentStreak: 1, // 初期デモ用で本日の利用開始を表示
-    longestStreak: 1,
-    lastStudiedDate: new Date().toISOString().split('T')[0],
-    totalDaysStudied: 1,
+    currentStreak: 0,
+    longestStreak: 0,
+    lastStudiedDate: null,
+    totalDaysStudied: 0,
     totalQuestionsSolved: 0,
     studyRecords: {},
   };
@@ -263,29 +263,45 @@ export class DataService {
 
   // --- ストリーク・カレンダー記録関連 ---
   static async getStreakInfo(userId: string): Promise<StreakInfo> {
-    const defaultStreak = getInitialStreakInfo();
+    let streakInfo = getInitialStreakInfo();
 
     if (db && userId) {
       try {
         const snap = await getDoc(doc(db, 'userStreaks', userId));
         if (snap.exists()) {
-          return snap.data() as StreakInfo;
+          streakInfo = snap.data() as StreakInfo;
         }
       } catch (err) {
         console.warn('Firestore getStreakInfo fallback to local:', err);
       }
-    }
-
-    const localData = localStorage.getItem(`${STORAGE_KEYS.STREAK_INFO}_${userId}`);
-    if (localData) {
-      try {
-        return JSON.parse(localData);
-      } catch (e) {
-        console.error('Failed to parse local streak:', e);
+    } else {
+      const localData = localStorage.getItem(`${STORAGE_KEYS.STREAK_INFO}_${userId}`);
+      if (localData) {
+        try {
+          streakInfo = JSON.parse(localData);
+        } catch (e) {
+          console.error('Failed to parse local streak:', e);
+        }
       }
     }
 
-    return defaultStreak;
+    // 日付を跨いで昨日以前に学習していないかチェック（ストリークリセット判定）
+    const now = new Date();
+    const today = now.toLocaleDateString('sv-SE');
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toLocaleDateString('sv-SE');
+
+    // 最後に学習したのが昨日でも今日でもない場合（2日以上放置）、現在ストリークは0にリセット
+    if (
+      streakInfo.lastStudiedDate &&
+      streakInfo.lastStudiedDate !== today &&
+      streakInfo.lastStudiedDate !== yesterday
+    ) {
+      streakInfo.currentStreak = 0;
+    }
+
+    return streakInfo;
   }
 
   static async recordStudySession(
@@ -293,7 +309,8 @@ export class DataService {
     result: { questionsAnswered: number; correctCount: number; isStepCompleted: boolean }
   ): Promise<StreakInfo> {
     const streakInfo = await this.getStreakInfo(userId);
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = now.toLocaleDateString('sv-SE'); // YYYY-MM-DD (日本時間等のローカル基準)
 
     const todayRecord: DailyStudyRecord = streakInfo.studyRecords[today] || {
       date: today,
@@ -313,14 +330,17 @@ export class DataService {
     streakInfo.studyRecords[today] = todayRecord;
     streakInfo.totalQuestionsSolved += result.questionsAnswered;
 
-    // ストリーク日数の計算
+    // ストリーク日数のリアルな計算
     if (streakInfo.lastStudiedDate !== today) {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const yesterdayDate = new Date(now);
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterday = yesterdayDate.toLocaleDateString('sv-SE');
+
       if (streakInfo.lastStudiedDate === yesterday) {
+        // 昨日学習していれば、連続日数 + 1！
         streakInfo.currentStreak += 1;
-      } else if (!streakInfo.lastStudiedDate) {
-        streakInfo.currentStreak = 1;
       } else {
+        // 初めての学習、またはブランクがあった場合は 1日目からスタート！
         streakInfo.currentStreak = 1;
       }
 
