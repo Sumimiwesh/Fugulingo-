@@ -60,7 +60,11 @@ export class DataService {
     const localData = localStorage.getItem(STORAGE_KEYS.MANUALS);
     if (localData) {
       try {
-        return JSON.parse(localData);
+        const parsed: HallManual[] = JSON.parse(localData);
+        // 新しいマニュアル構成（manual-brand-course）を含んでいるか確認
+        if (parsed.some((m) => m.id === 'manual-brand-course')) {
+          return parsed;
+        }
       } catch (e) {
         console.error('Failed to parse local manuals:', e);
       }
@@ -157,7 +161,10 @@ export class DataService {
     const localData = localStorage.getItem(STORAGE_KEYS.SECTIONS);
     if (localData) {
       try {
-        return JSON.parse(localData);
+        const parsed: QuizSection[] = JSON.parse(localData);
+        if (parsed.some((s) => s.manualId === 'manual-brand-course')) {
+          return parsed;
+        }
       } catch (e) {
         console.error('Failed to parse local sections:', e);
       }
